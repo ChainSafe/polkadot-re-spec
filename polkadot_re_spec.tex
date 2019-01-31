@@ -1,12 +1,11 @@
 \documentclass{article}
 \usepackage[english]{babel}
 \usepackage{geometry,amsmath,amssymb,calc,ifthen,alltt,capt-of}
-\geometry{letterpaper, paperheight= auto, paperwidth= auto}
+\geometry{paperheight= auto, paperwidth= auto}
 
 %%%%%%%%%% Start TeXmacs macros
 \newcommand{\assign}{:=}
 \newcommand{\cdummy}{\cdot}
-\newcommand{\nin}{\not\in}
 \newcommand{\nobracket}{}
 \newcommand{\nosymbol}{}
 \newcommand{\tmem}[1]{{\em #1\/}}
@@ -73,7 +72,7 @@
 
 \begin{definition}
   {\tmstrong{Runtime}} is the state transition function of the decentralized
-  ledger protocol.\tmverbatim{}
+  ledger protocol.
 \end{definition}
 
 \begin{definition}
@@ -228,12 +227,14 @@ Polkadot RE assumes that at least the following functions are implemented in
 the Runtime Wasm blob and has been exported as shown in Snippet
 \ref{snippet-runtime-enteries} :
 
-\tmfloat{h}{small}{figure}{\begin{tmcode}[cpp]
+{\tmfloat{h}{small}{figure}{\begin{tmcode}[cpp]
+
 (export "version" (func $version))
 (export "authorities" (func $authorities))
 (export "execute_block" (func $execute_block))
+
 \end{tmcode}}{\label{snippet-runtime-enteries}Snippet to export entries into
-tho Wasm runtime module}
+tho Wasm runtime module}}
 
 The following sections describe the standard based on which Polkadot RE
 communicates with each runtime entry.
@@ -244,10 +245,9 @@ This entry receives no argument, it returns the vesion data encoded in ABI
 format described in Section \ref{sect-abi-encoding} containing the following
 data:
 
-\
 
 \begin{center}
-  \tmfloat{h}{small}{table}{\begin{tabular}{lll}
+  {\tmfloat{h}{small}{table}{\begin{tabular}{lll}
     \hline
     Name & Type & Description\\
     \hline
@@ -263,9 +263,8 @@ data:
     \tmverbatim{apis} & ApisVec & List of supported AP\\
     \hline
   \end{tabular}}{Detail of the version data type returns from runtime
-  \tmverbatim{version} function}
+  \tmverbatim{version} function}}
 \end{center}
-
 \subsubsection{authorities}\label{sect-runtime-api-auth}
 
 This entry is to report the set of authorities at a given block. It receives
@@ -277,11 +276,10 @@ This entry is to report the set of authorities at a given block. It receives
 This entry is responsible to execute all extrinsics in the block and reporting
 back the changes into the state storage. It receives the block header and the
 block body as its arguments and it returns a triplet:
-
 \begin{center}
   \
   
-  \tmfloat{h}{small}{table}{\begin{tabular}{lll}
+  {\tmfloat{h}{small}{table}{\begin{tabular}{lll}
     \hline
     Name & Type & Description\\
     \hline
@@ -290,7 +288,7 @@ block body as its arguments and it returns a triplet:
     state storage\\
     \tmverbatim{change\_updat} & {\todo{???}} & \\
     \hline
-  \end{tabular}}{Detail of the data execute\_block returns after execution}
+  \end{tabular}}{Detail of the data execute\_block returns after execution}}
 \end{center}
 
 \subsection{Code Executor}
@@ -517,7 +515,7 @@ follows:
 
 \begin{definition}
   We say {\tmstrong{B is descendant of $B'$}}, formally noted as {\tmstrong{$B
-  > B'$}} if $B$ is a descendent of $B'$ in the block tree. 
+  > B'$}} if $B$ is a descendent of $B'$ in the block tree.
 \end{definition}
 
 \subsection{Block Production}
@@ -597,7 +595,6 @@ votes.
   equivocators whose equivocation has been observed by voter $v$ we refer to
   it by:
   \[ \mathcal{E}^{r, \tmop{stage}}_{\tmop{obs} (v)} \]
-  
 \end{definition}
 
 \begin{definition}
@@ -644,7 +641,7 @@ votes.
   is defined to be the size of that set plus the total number of equivocators
   voters:
   \[ \#V^{r, \tmop{stage}}_{\tmop{obs} (v)} (B) = |V^{r,
-     \tmop{stage}}_{\tmop{obs} (v)} (B) | + | \mathcal{E}^{r,
+     \tmop{stage}}_{\tmop{obs} (v)} (B) | + |\mathcal{E}^{r,
      \tmop{stage}}_{\tmop{obs} (v)} | \]
 \end{definition}
 
@@ -656,13 +653,13 @@ votes.
 \end{definition}
 
 Note that for genesis block $\tmop{Genesis}$ we always have $\#V_{\tmop{obs}
-(v)}^{r, \tmop{pv}} (B) = | \mathbb{V} |$.
+(v)}^{r, \tmop{pv}} (B) = |\mathbb{V}|$.
 
 \
 
 Finally we define when a voter $v$ see a round as completable, that is when
 they are confident that $B_v^{r, \tmop{pv}}$ is an upper bound for what is
-going to be finalised in this round. \
+going to be finalised in this round.
 
 \begin{definition}
   We say that round $r$ is {\tmstrong{completable}} if $|V^{r,
@@ -709,7 +706,6 @@ more details). These messages are specified in this section.
       & 1 if it the pre-commit sub-round & 
     \end{tabular}
   \end{center}
-  
 \end{definition}
 
 \begin{definition}
@@ -772,7 +768,7 @@ v} \leftarrow$Time}}
 
 {\state{$\tmop{primary} \leftarrow${\tmname{Derive-Primary}}}}
 
-{\state{{\IF{$v = \tmop{primary}$}}}}
+{\state{}}
 
 {\state{{\tmname{Broadcast(}}\left.$M_{v_{\nosymbol}}^{r - 1,
 \tmop{Fin}}$({\tmname{Best-Final-Candidate}}($r$-1))\right){\END}}}
@@ -782,12 +778,11 @@ v} + 2 \times T$ {\tmstrong{or}} $r$ {\tmstrong{is}} completable){\END}}}
 
 {\state{$L \leftarrow${\tmname{Best-Final-Candidate}}($r$-1)}}
 
-{\state{{\IF{{\tmname{Received($M_{v_{\tmop{primary}}}^{r, \tmop{pv}} (B)$)}}
-{\tmstrong{and}} $B^{r, \tmop{pv}}_v \geqslant B > L$}}}}
+{\state{}}
 
 {\state{$N \leftarrow B${\END}}}
 
-{\state{{\ELSE{\ }}}}
+{\state{{\algoelse} }}
 
 {\state{$N \leftarrow B' : H_n (B') = \max \{H_n (B') : B' > L\} \END$}}
 
@@ -795,7 +790,7 @@ v} + 2 \times T$ {\tmstrong{or}} $r$ {\tmstrong{is}} completable){\END}}}
 
 {\state{{\tmname{Receive-Messages}}({\tmstrong{until}} $B^{r,
 \tmop{pv}_{\nosymbol}}_v \geqslant L$ {\tmstrong{and}} (Time $\geqslant t_{r_,
-v} + 4 \times T${\tmstrong{ or }}$r$ {\tmstrong{is}} completable))}}
+v} + 4 \times T${\tmstrong{or }}$r$ {\tmstrong{is}} completable))}}
 
 {\state{{\tmname{Broadcast($M_v^{r, \tmop{pc}}$($B_v^{r, \tmop{pv}}$))}}}}
 
@@ -805,31 +800,29 @@ v} + 4 \times T${\tmstrong{ or }}$r$ {\tmstrong{is}} completable))}}
 \leftarrow \{B' |B' \leqslant B_v^{r, \tmop{pv}} : |V_v^{r, \tmop{pc}} |
 -\#V_v^{r, \tmop{pc}} (B') \leqslant 1 / 3|\mathbb{V}|\}$}}
 
-{\state{{\IF{$\mathcal{C}= \phi$}}}}
+{\state{}}
 
-{\state{{\RETURN{$\phi${\END}}}}}
+{\state{{\algoreturn}$\phi${\END}}}
 
-{\state{{\ELSE{\ }}}}
+{\state{{\algoelse} }}
 
-{\state{{\RETURN{$E \in \mathcal{C}: H_n (E) = \max \{H_n (B') : B' \in
-\mathcal{C}\}${\END}}}}}}}}}
+{\state{{\algoreturn}$E \in \mathcal{C}: H_n (E) = \max \{H_n (B') : B' \in
+\mathcal{C}\}${\END}}}}}}}
 
 {\algorithm{{\tmname{Attempt-To-Finalize-Round}}($r$)}{{\algorithmic{{\state{$L
 \leftarrow${\tmname{Last-Finalized-Block}}}}
 
 {\state{$E \leftarrow${\tmname{Best-Final-Candidate}}($r$)}}
 
-{\state{{\IF{$E \geqslant L$ {\tmstrong{and}} $V^{r - 1,
-\tmop{pc}}_{\tmop{obs} (v)}^{\nosymbol}_{\nosymbol} (E) > 2 / 3
-|\mathcal{V}|$}}}}
+{\state{}}
 
 {\state{{\tmname{Last-Finalized-Block}}$\leftarrow B^{r, \tmop{pc}}$}}
 
-{\state{{\IF{$M_v^{r, \tmop{Fin}} (E) \nin${\tmname{Received-Messages}}}}}}
+{\state{}}
 
 {\state{{\tmname{Broadcast}}($M_v^{r, \tmop{Fin}} (E)$)}}
 
-{\state{{\RETURN{{\END}{\END}}}}}
+{\state{{\algoreturn}{\END}{\END}}}
 
 {\state{{\tmstrong{schedule-call}} {\tmname{Attempt-To-Finalize-Round}}($r$)
 {\tmstrong{when}} {\tmname{Receive-Messages}} }}}}}}
@@ -855,7 +848,7 @@ proof for the State Storage.
        j^{\nosymbol}_1 j^{\nosymbol}_2 j_3 b_1 \ldots b_n &  & 2^{14}
        \leqslant n < 2^{30}\\
        k_1^{\nosymbol} k_2^{\nosymbol} \ldots k_m^{\nosymbol} b_1 \ldots b_n &
-       & 2^{14} \leqslant n
+       & 2^{30} \leqslant n
      \end{array} \right. \]
   in which:{\hspace{0.17em}}
   \[ \begin{array}{|l|}
