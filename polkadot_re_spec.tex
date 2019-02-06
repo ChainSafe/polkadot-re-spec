@@ -73,6 +73,8 @@
 \begin{definition}
   {\tmstrong{Runtime}} is the state transition function of the decentralized
   ledger protocol.
+  
+  HELLLO WORLD
 \end{definition}
 
 \begin{definition}
@@ -229,9 +231,11 @@ the Runtime Wasm blob and has been exported as shown in Snippet
 
 {\tmfloat{h}{small}{figure}{\begin{tmcode}[cpp]
 
+
 (export "version" (func $version))
 (export "authorities" (func $authorities))
 (export "execute_block" (func $execute_block))
+
 
 \end{tmcode}}{\label{snippet-runtime-enteries}Snippet to export entries into
 tho Wasm runtime module}}
@@ -244,8 +248,6 @@ communicates with each runtime entry.
 This entry receives no argument, it returns the vesion data encoded in ABI
 format described in Section \ref{sect-abi-encoding} containing the following
 data:
-
-
 \begin{center}
   {\tmfloat{h}{small}{table}{\begin{tabular}{lll}
     \hline
