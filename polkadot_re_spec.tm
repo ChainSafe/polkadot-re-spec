@@ -1,4 +1,4 @@
-<TeXmacs|1.99.7>
+<TeXmacs|1.99.8>
 
 <style|<tuple|article|std-latex|/home/klaymen/doc/code/algorithmacs/algorithmacs-style.ts>>
 
@@ -402,7 +402,7 @@
   to encode <math|k> in a uniform way:
 
   <\definition>
-    The for the purpose labeling the branches of the Trie key <math|k> is
+    For the purpose of labeling the branches of the Trie, key <math|k> is
     encoded to <math|k<rsub|enc>> using KeyEncode functions:
 
     <\equation>
@@ -420,8 +420,8 @@
     which are the little endian representations of <math|b<rsub|i>>:
 
     <\equation*>
-      <around|(|b<rsup|1><rsub|i>,b<rsup|2><rsub|i>|)>\<assign\><around|(|b<rsub|1>mod
-      16,b<rsub|2>/16|)>
+      <around|(|b<rsup|1><rsub|i>,b<rsup|2><rsub|i>|)>\<assign\><around|(|b<rsub|i>mod
+      16,b<rsub|i>/16|)>
     </equation*>
 
     , where mod is the remainder and / is the integer division operators.
@@ -1195,7 +1195,6 @@
 
 <\references>
   <\collection>
-    <associate|alg-completable-round|<tuple|5|11>>
     <associate|alg-grandpa-best-candidate|<tuple|4|10>>
     <associate|alg-grandpa-round|<tuple|3|10>>
     <associate|alg-join-leave-grandpa|<tuple|2|10>>
