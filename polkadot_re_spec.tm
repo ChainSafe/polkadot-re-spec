@@ -45,7 +45,7 @@
 
   <\definition>
     <label|def-path-graph>A <strong|path graph> or a <strong|path> of
-    <math|n> nodes, formally referred to as <strong|<math|P<rsub|n>>>, is a
+    <math|n> nodes formally referred to as <strong|<math|P<rsub|n>>>, is a
     tree with two nodes of vertex degree 1 and the other n-2 nodes of vertex
     degree 2. Therefore, <math|P<rsub|n>> can be represented by sequences of
     <math|<around|(|v<rsub|1>,\<ldots\>,v<rsub|n>|)>> where
@@ -90,7 +90,7 @@
   </definition>
 
   <\notation>
-    We represent the concatination of byte arrays
+    We represent the concatenation of byte arrays
     <math|a\<assign\><around|(|a<rsub|0>,\<ldots\>,a<rsub|n>|)>> and
     <math|b\<assign\><around|(|b<rsub|0>,\<ldots\>,b<rsub|m>|)>> by:
 
@@ -111,6 +111,41 @@
 
     <\equation*>
       b=2<rsup|0>*b<rsup|0>+2<rsup|1>*b<rsup|1>+\<cdots\>+2<rsup|7>*b<rsup|7>
+    </equation*>
+  </definition>
+
+  <\definition>
+    By <verbatim|>the <strong|little-endian> representation of a non-negative
+    integer, I represented as
+
+    <\equation*>
+      I=<around*|(|B<rsub|n>\<ldots\>B<rsub|0>|)><rsub|256>
+    </equation*>
+
+    In two base 256, is a byte array <math|B=<around*|(|b<rsub|0>,b<rsub|1>,\<ldots\>,b<rsub|n>|)>>
+    such that
+
+    <\equation*>
+      b<rsub|i>\<assign\>B<rsub|i>
+    </equation*>
+  </definition>
+
+  <\definition>
+    By <name|<strong|<verbatim|UINT32>>> we refer to a non-negative integer
+    stored in a byte array of length 4 using little-endian encoding format.
+  </definition>
+
+  <\definition>
+    A <strong|blockchain> <math|C> is a directed path graph. Each node of the
+    graph is called <strong|Block> and indicated by <strong|<math|B>>. The
+    unique sink of <math|C> is called <strong|Genesis Block>, and the source
+    is called the <strong|Head> of C. For any vertex
+    <math|<around*|(|B<rsub|1>,B<rsub|2>|)>> where
+    <math|B<rsub|1>\<rightarrow\>B<rsub|2>> we say <math|B<rsub|2>> is the
+    <strong|parent> of <math|B<rsub|1>> and we indicate it by\ 
+
+    <\equation*>
+      B<rsub|2>\<assign\>P<around*|(|B<rsub|1>|)>
     </equation*>
   </definition>
 
@@ -147,9 +182,11 @@
       <strong|<math|H<rsub|r>>> is the root of the Merkle trie, whose leaves
       implement the storage for the system.
 
-      <item><strong|<samp|extrinsics_root:>> is the root of the Merkle trie,
-      whose leaves represent individual extrinsics being validated in this
-      block. This element is formally referred to as
+      <item><strong|<samp|extrinsics_root:>> is the field which is reserved
+      for the runtime to validate the integrity of the extrinsics composing
+      the block body. For example, it can hold the root hash of the Merkle
+      trie which stores an ordered list of the extrinsics being validated in
+      this block. This element is formally referred to as
       <strong|<math|H<rsub|e>>>.
 
       <item><strong|<samp|digest:>> this field is used to store any
@@ -193,26 +230,40 @@
 
   <subsection|Extrinsics>
 
-  Each block also contains a list of extrinsics. Polkadot RE does not specify
-  or limit the internal of each extrinsics beside the fact that each
-  extrinsics is a blob of encoded data. The <samp|extrinsics_root> should
-  correspond to the root of the Merkle trie, whose leaves are made of the
-  block extrinsics list.
+  Each block contains as well a list of extrinsics. Polkadot RE does not
+  specify or limit the internal of each extrinsics beside the fact that each
+  extrinsics is a byte array encoded using SCALE codec
+  [<reference|def-scale-codec>].\ 
 
-  <section|Runtime><label|sect-entries-into-runtime>
+  The <samp|extrinsics_root> is set by the runtime, and its value is opaque
+  to Polkadot RE.
+
+  The extrinsics in a block are ordered using pairing each extrinsics by a
+  UINT32 integer sequential number starting at 0 which is encoded using SCALE
+  codec.
+
+  <section|Interactions with the Runtime><label|sect-entries-into-runtime>
+
+  Runtime is the code implementing the logic of the chain. This code is
+  decoupled from the Polkadot RE to make the Runtime easily upgradable
+  without the need to upgrade the Polkadot RE itself. In this section, we
+  describe the details upon which the Polkadot RE is interacting with the
+  Runtime.
+
+  <subsection|Loading the Runtime code \ \ >
 
   Polkadot RE expects to receive the code for the runtime of the chain as a
   compiled WebAssembly (Wasm) Blob. The current runtime is stored in the
   state database under the key represented as a byte array:
 
   <\equation*>
-    b=3*a,63,6*f,64,65
+    b=<text|3A,63,6F,64,65>
   </equation*>
 
   which is the byte array of ASCII representation of string \P:code\Q (see
   Section <reference|sect-predef-storage-keys>). For any call to the runtime,
-  Polkadot RE makes sure that it has most updated runtime as calls to runtime
-  have the ability to change the runtime code.
+  Polkadot RE makes sure that it has the most updated Runtime as calls to
+  runtime have potentially the ability to change the runtime code.
 
   The initial runtime code of the chain is embedded as an extrinsics into the
   chain initialization JSON file and is submitted to Polkadot RE (see Section
@@ -222,11 +273,55 @@
   (see Section <reference|sect-runtime-api>) to insert a new Wasm blob into
   runtime storage slot to upgrade the runtime.
 
-  <subsection|Entries into Runtime>
+  <subsection|Code Executor>
+
+  Polkadot RE provides a Wasm Virtual Machine (VM) to run the Runtime. The
+  Wasm VM exposes the Polkadot RE API to the Runtime, which, on its turn,
+  executes a call to the Runtime entries stored in the Wasm module. This part
+  of the Runtime environment is referred to as the <em|<strong|Executor>.>
+
+  In this section, we specify the general setup for an Executor call into the
+  Runtime. In Section <reference|sect-runtime-entries> we specify the
+  parameters and the return values of each Runtime entry separately.
+
+  <subsubsection|ABI Encoding between Runtime and the Runtime
+  Environment><label|sect-abi-encoding>
+
+  All data exchanged between Polkadot RE and the Runtime is encoded using
+  SCALE codec described in Section <reference|sect-scale-codec>.
+
+  <subsubsection|Access to Runtime API>
+
+  When Polkadot RE calls a Runtime entry it should make sure Runtime has
+  access to the all Polkadot Runtime API functions described in Appendix
+  <reference|sect-runtime-api>. This can be done for example by loading
+  another Wasm module alongside the runtime which imports these functions
+  from Polkadot RE as host functions.
+
+  <subsubsection|Sending Arguments to Runtime \ >
+
+  In each invocation of a Runtime entry, the arguments which are supposed to
+  be sent to the entry need to be encoded using SCALE codec into a byte array
+  <math|B>. The Executor then needs to retrieve the memory buffer of the
+  Runtime Wasm module and extend it to fit the size of the byte array. Then
+  it needs to copy the byte array value in the correct offset of the extended
+  buffer. Finally, when the Wasm method corresponding to the entry is called,
+  two UINT32 integers are sent to the method as arguments. The first one is
+  the offset of the byte array <math|B> in the extended shared memory buffer,
+  and the second one is the size of <math|B>.
+
+  <subsubsection|The Return Value from a Runtime Entry>
+
+  The value which is returned from the invocation represents two consecutive
+  UINT32 integers in which the first one indicates the pointer to the offset
+  of the result returned by the entry encoded in SCALE codec in the memory
+  buffer. The second one provides the size of the blob.
+
+  <subsection|Entries into Runtime><label|sect-runtime-entries>
 
   Polkadot RE assumes that at least the following functions are implemented
   in the Runtime Wasm blob and has been exported as shown in Snippet
-  <reference|snippet-runtime-enteries> :
+  <reference|snippet-runtime-enteries>:
 
   <assign|figure-text|<macro|Snippet>>
 
@@ -237,6 +332,10 @@
       (export "authorities" (func $authorities))
 
       (export "execute_block" (func $execute_block))
+
+      (export "validate_transaction" (func $validate_transaction))
+
+      (export "initialise_block" (func $initialise_block))
     </cpp-code>
   </small-figure|<label|snippet-runtime-enteries>Snippet to export entries
   into tho Wasm runtime module>
@@ -248,7 +347,7 @@
 
   <subsubsection|version>
 
-  This entry receives no argument, it returns the vesion data encoded in ABI
+  This entry receives no argument; it returns the version data encoded in ABI
   format described in Section <reference|sect-abi-encoding> containing the
   following data:
 
@@ -257,28 +356,25 @@
   <\with|par-mode|center>
     <small-table|<tabular|<tformat|<cwith|1|7|1|1|cell-halign|l>|<cwith|1|7|1|1|cell-lborder|0ln>|<cwith|1|7|2|2|cell-halign|l>|<cwith|1|7|3|3|cell-halign|l>|<cwith|1|7|3|3|cell-rborder|0ln>|<cwith|1|7|1|3|cell-valign|c>|<cwith|1|1|1|3|cell-tborder|1ln>|<cwith|1|1|1|3|cell-bborder|1ln>|<cwith|7|7|1|3|cell-bborder|1ln>|<cwith|2|-1|1|1|font-base-size|8>|<cwith|2|-1|2|-1|font-base-size|8>|<table|<row|<cell|Name>|<cell|Type>|<cell|Description>>|<row|<cell|<verbatim|spec_name>>|<cell|String>|<cell|runtime
     identifier>>|<row|<cell|<verbatim|impl_name>>|<cell|String>|<cell|the
-    name of the implementation (e.g. C++)>>|<row|<cell|<verbatim|authoring_version>>|<cell|32-bit
-    uint>|<cell|the version of the authorship
-    interface>>|<row|<cell|<verbatim|spec_version>>|<cell|32-bit
-    uint>|<cell|the version of the runtime
-    specification>>|<row|<cell|<verbatim|impl_version>>|<cell|32-bit
-    uint>|<cell|the version of the runtime
-    implementation>>|<row|<cell|<verbatim|apis>>|<cell|ApisVec>|<cell|List of
-    supported AP>>>>>|Detail of the version data type returns from runtime
+    name of the implementation (e.g. C++)>>|<row|<cell|<verbatim|authoring_version>>|<cell|UINT32>|<cell|the
+    version of the authorship interface>>|<row|<cell|<verbatim|spec_version>>|<cell|UINT32>|<cell|the
+    version of the runtime specification>>|<row|<cell|<verbatim|impl_version>>|<cell|UINT32>|<cell|the
+    version of the runtime implementation>>|<row|<cell|<verbatim|apis>>|<cell|ApisVec>|<cell|List
+    of supported AP>>>>>|Detail of the version data type returns from runtime
     <verbatim|version> function>
   </with>
 
   <subsubsection|authorities><label|sect-runtime-api-auth>
 
   This entry is to report the set of authorities at a given block. It
-  receives <verbatim|block_id> as an argument, it returns an array of
+  receives <verbatim|block_id> as an argument; it returns an array of
   <verbatim|authority_id>'s.
 
   <subsubsection|execute_block>
 
-  This entry is responsible to execute all extrinsics in the block and
+  This entry is responsible for executing all extrinsics in the block and
   reporting back the changes into the state storage. It receives the block
-  header and the block body as its arguments and it returns a triplet:
+  header and the block body as its arguments, and it returns a triplet:
 
   <\with|par-mode|center>
     \;
@@ -289,19 +385,171 @@
     of the data execute_block returns after execution>
   </with>
 
-  <subsection|Code Executor>
+  <subsubsection|validate_transaction><label|sect-validate-transaction>
 
-  Polkadot RE provide a Wasm Virtual Machine (VM) to run the runtime. The
-  Wasm VM exposes the Polkadot RE API to the Runtime. And execute the Runtime
-  as a Wasm module.
+  <todo|Explain function>
 
-  <subsection|ABI Encoding between Runtime and the Runtime
-  Enviornment><label|sect-abi-encoding>
+  <subsection|Runtime API><label|sect-runtime-api>
 
-  All data exchanged between Polkadot RE and the runtime is encoded using
-  SCALE codec described in Section <reference|sect-scale-codec>.
+  Runtime API is a set of functions that Polkadot RE exposes to Runtime to
+  access external functions needed for various reasons, such as Storage
+  content access and manipulation, memory allocation and also for efficiency.
+  The functios are specified in each subsequent subsection for each category
+  of those functions.
 
-  <section|Network API>
+  <subsubsection|Storage>
+
+  <\itemize>
+    <item><verbatim|ext_child_storage_root>
+
+    <item><verbatim|ext_clear_child_storage>
+
+    <item><verbatim|ext_clear_prefix>
+
+    <item><verbatim|ext_clear_storage>
+
+    <item><verbatim|ext_exists_child_storage>
+
+    <item><verbatim|ext_get_allocated_child_storage>
+
+    <item><verbatim|ext_get_allocated_storage>
+
+    <item><verbatim|ext_get_child_storage_into>
+
+    <item><verbatim|ext_get_storage_into>
+
+    <item><verbatim|ext_kill_child_storage>
+
+    <item><verbatim|ext_set_child_storage>
+
+    <item><verbatim|ext_set_storage>
+
+    Sets the value of a specific key in the state storage.
+
+    <strong|Arguments>:
+
+    <\itemize>
+      <item><verbatim|key>: 32bit pointer pointing the buffer containing the
+      key.
+
+      <item><verbatim|key_len>: UINT32 integer specifying the key length.
+
+      <item><verbatim|value>: 32bit pointer pointing the buffer containing
+      the value to be stored under the key.
+
+      <item><verbatim|value_len>: UINT32 integer specifying the length of the
+      value buffer.
+    </itemize>
+
+    <item><verbatim|ext_storage_changes_root>
+
+    <item><verbatim|ext_storage_root>
+
+    <item><verbatim|ext_exists_storage>
+  </itemize>
+
+  <subsubsection|Memory>
+
+  <\itemize>
+    <item><verbatim|ext_malloc>
+
+    Allocates memory of size <verbatim|size> in the heap and returns a 32bit
+    pointer to the allocated memory.
+
+    <strong|Arguments:>
+
+    <\itemize>
+      <item><verbatim|size:> UINT32 integer indicating the size of the buffer
+      to be allocated.\ 
+    </itemize>
+
+    <item><verbatim|ext_free>
+
+    Deallocates a previously allocated memory.
+
+    <\strong>
+      Arguments:
+    </strong>
+
+    <\itemize>
+      <item><verbatim|addr>: 32bit pointer pointing to the allocated memory.
+    </itemize>
+  </itemize>
+
+  <subsubsection|Input/Output>
+
+  <\itemize>
+    <item><verbatim|ext_print_hex>
+
+    <item><verbatim|ext_print_num>
+
+    <item><verbatim|ext_print_utf8>
+  </itemize>
+
+  <subsubsection|Cryptograhpic auxilary functions>
+
+  <\itemize>
+    <item><verbatim|ext_blake2_256>
+
+    <item><verbatim|ext_blake2_256_enumerated_trie_root>
+
+    <item><verbatim|ext_ed25519_verify>
+
+    <item><verbatim|ext_twox_128>
+
+    <item><verbatim|ext_twox_256>
+
+    \;
+  </itemize>
+
+  <subsubsection|Sandboxing>
+
+  <\itemize>
+    <item><verbatim|ext_sandbox_instance_teardown>
+
+    <item><verbatim|ext_sandbox_instantiate>
+
+    <item><verbatim|ext_sandbox_invoke>
+
+    <item><verbatim|ext_sandbox_memory_get>
+
+    <item><verbatim|ext_sandbox_memory_new>
+
+    <item><verbatim|ext_sandbox_memory_set>
+
+    <item><verbatim|ext_sandbox_memory_teardown>
+
+    \;
+  </itemize>
+
+  <subsubsection|Misc>\ 
+
+  <\itemize-dot>
+    <item><verbatim|ext_chain_id>
+  </itemize-dot>
+
+  <section|Network Interactions>
+
+  <subsection|Extrinsics Submission>
+
+  Extrinsic submission is made by sending an extrinsic network message. The
+  structure of this message is specified in Definition
+  <reference|def-extrinsic-network-message>.
+
+  Upon receiving an extrinsics message, Polkadot RE decodes the transaction
+  and calls <verbatim|validate_trasaction> runtime function defined in
+  Section <reference|sect-validate-transaction>, to check the validity of the
+  extrinsic. If <verbatim|validate_transaction> considers the submitted
+  extrinsics as a valid one, Polkadot RE makes the extrinsics available for
+  the consensus engine for inclusion in future blocks.
+
+  <subsection|Network Messages>
+
+  <\definition>
+    <label|def-extrinsic-network-message><strong|Extrinsic submission network
+    message: ><todo|<label|def-extrinsic-network-message><strong|Extrinsic
+    submission network message definition>>
+  </definition>
 
   <subsection|Block Submission and Validation>
 
@@ -310,19 +558,13 @@
   consistent with the world state and transitions from the state of the
   system to a new valid state.
 
-  \;
-
   Blocks can be handed to the Polkadot RE both from the network stack and
-  from consensus engine.
+  from the consensus engine.
 
-  \;
-
-  Both the runtime and the Polkadot RE need to work together to assure block
+  Both the Runtime and the Polkadot RE need to work together to assure block
   validity. This can be accomplished by Polkadot RE invoking
   <verbatim|execute_block> entry into the runtime as a part of the validation
   process.
-
-  \;
 
   Polkadot RE implements the following procedure to assure the validity of
   the block:
@@ -334,11 +576,22 @@
       </state>
 
       <\state>
-        Verify <math|H<rsub|p<around|(|B|)>>\<in\>Blockchain>.
+        <\IF>
+          <math|B> <strong|is> Finalized <strong|and> <math|P<around*|(|B|)>>
+          <strong|is not> Finalized
+        </IF>
       </state>
 
       <\state>
-        State-Changes = Runtime.<name|<math|<around|(|B|)>>>
+        <name|Mark-as-Final><math|<around*|(|P<around*|(|B|)>|)>><END>
+      </state>
+
+      <\state>
+        Verify <math|H<rsub|p<around|(|B|)>>\<in\>Blockchain>
+      </state>
+
+      <\state>
+        State-Changes = Runtime<name|<math|<around|(|B|)>>>
       </state>
 
       <\state>
@@ -347,12 +600,15 @@
     </algorithmic>
   </algorithm>
 
+  For the definition of the finality and the finalized block see Section
+  <reference|sect-finality>.
+
   <section|State Storage and the Storage Trie>
 
   For storing the state of the system, Polkadot RE implements a hash table
   storage where the keys are used to access each data entry state. There is
-  no limitation neither on the size of the key nor the size of the data
-  stored under them, besides the fact that they are byte arrays.
+  no limitation either on the size of the key nor the size of the data stored
+  under them, besides the fact that they are byte arrays.
 
   <subsection|Accessing The System Storage >
 
@@ -378,7 +634,7 @@
 
   To authenticate the state of the system, the stored data needs to be
   re-arranged and hashed in a <em|radix 16 tree> also known as <em|base-16
-  modified Merkle Patricia Tree>, which hereafter we will refer to as the
+  modified Merkle Patricia Tree>, which hereafter we refer to as the
   <em|<strong|Trie>,> in order to compute the hash of the whole state storage
   consistently and efficiently at any given time.
 
@@ -402,7 +658,7 @@
   to encode <math|k> in a uniform way:
 
   <\definition>
-    For the purpose of labeling the branches of the Trie, key <math|k> is
+    For the purpose of labeling the branches of the Trie, the key <math|k> is
     encoded to <math|k<rsub|enc>> using KeyEncode functions:
 
     <\equation>
@@ -436,11 +692,11 @@
   modifications efficiently, the Merkle hash of the storage trie needs to be
   computed rigorously.
 
-  The Merkle hash of the trie is computed recursively. As such, hash value of
-  each node depends on the hash value of all its children and also on its
-  value. Therefore, it suffices to define how to compute the hash value of a
-  typical node as a function of the hash value of its children and its own
-  value.
+  The Merkle hash of the trie is computed recursively. As such, the hash
+  value of each node depends on the hash value of all its children and also
+  on its value. Therefore, it suffices to define how to compute the hash
+  value of a typical node as a function of the hash value of its children and
+  its own value.
 
   <\definition>
     Suppose node N of storage state trie has key value <math|k<rsub|N>>, and
@@ -510,12 +766,6 @@
     </equation*>
   </definition>
 
-  <section|Extrinsics trie>
-
-  To validate that the Extrinsics data are stored in a block across clients,
-  Polkadot RE uses the same trie structure as for the state storage described
-  in Section <reference|sect-merkl-proof> to generate the Merkle proof.
-
   <section|Consensus Engine>
 
   Consensus in Polkadot RE is achieved during the execution of two different
@@ -526,8 +776,8 @@
   <subsection|Block Tree>
 
   In the course of formation of a (distributed) blockchain, it is possible
-  that the chain forks into multiple sub chains in various block positions.
-  We refer to this structure as a <em|block tree:>
+  that the chain forks into multiple subchains in various block positions. We
+  refer to this structure as a <em|block tree:>
 
   <\definition>
     The <strong|Block Tree> of a blockchain is the union of all different
@@ -540,18 +790,18 @@
   Because every block in the blockchain contains a reference to its parent,
   it is easy to see that the block tree is actually a tree.
 
-  A block tree naturally imposes a partial order relationships on the blocks
-  as follows:
+  A block tree naturally imposes partial order relationships on the blocks as
+  follows:
 
   <\definition>
     We say <strong|B is descendant of <math|B<rprime|'>>>, formally noted as
-    <strong|<math|B\<gtr\>B<rprime|'>>> if <math|B> is a descendent of
-    <math|B<rprime|'>> in the block tree.\ 
+    <strong|<math|B\<gtr\>B<rprime|'>>> if <math|B> is a descendant of
+    <math|B<rprime|'>> in the block tree.
   </definition>
 
   <subsection|Block Production>
 
-  <subsection|Finality>
+  <subsection|Finality><label|sect-finality>
 
   Polkadot RE uses GRANDPA Finality protocol <cite|AlSt19-Grandpai> to
   finalize blocks. Finality is obtained by consecutive rounds of voting by
@@ -560,14 +810,14 @@
   the different functions that GRANDPA service is supposed to perform to
   successfully participate in the block finalization process.
 
-  <subsubsection|Priliminaries>
+  <subsubsection|Preliminaries>
 
   <\definition>
     A <strong|GRANDPA Voter>, <math|v>, is represented by a key pair
     <math|<around|(|k<rsup|pr><rsub|v>,v<rsub|id>|)>> where
-    <math|k<rsub|v><rsup|pr>> represents its private key which is a
+    <math|k<rsub|v><rsup|pr>> represents its private key which is an
     <math|ED25519> private key, is a node running GRANDPA protocol, and
-    broadcasts votes to finilize blocks in a Polkadot RE - based chain. The
+    broadcasts votes to finalize blocks in a Polkadot RE - based chain. The
     <strong|set of all GRANDPA voters> is indicated by <math|\<bbb-V\>>. For
     a given block B, we have
 
@@ -608,25 +858,25 @@
     </equation*>
 
     where <math|H<rsub|h><around|(|B|)>> and <math|H<rsub|i><around|(|B|)>>
-    are block hash and block number defined in Definitions
+    are the block hash and the block number defined in Definitions
     <reference|def-block-header> and <reference|def-block-header-hash>
     respectively.
   </definition>
 
   <\definition>
-    Voters engage in a maximum two sub-rounds of voting for each round
+    Voters engage in a maximum of two sub-rounds of voting for each round
     <math|r>. The first sub-round is called <strong|pre-vote> and the second
     sub-round is called <strong|pre-commit>.
 
     By <strong|<math|V<rsub|v><rsup|r,pv>>> and
-    <strong|<math|V<rsub|v><rsup|r,pc>>> we refer to the vote casted by voter
+    <strong|<math|V<rsub|v><rsup|r,pc>>> we refer to the vote cast by voter
     <math|v> in round <math|r> (for block <math|B>) during the pre-vote and
     the pre-commit sub-round respectively.
   </definition>
 
   The GRANDPA protocol dictates how an honest voter should vote in each
   sub-round, which is described in Algorithm <reference|alg-grandpa-round>.
-  After defining what consititues a vote in GRANDPA, we define how GRANDPA
+  After defining what constitues a vote in GRANDPA, we define how GRANDPA
   counts votes.
 
   <\definition>
@@ -634,7 +884,7 @@
     votes to blocks not residing on the same branch of the block tree during
     one voting sub-round. In such a situation, we say that <math|v> is an
     <strong|equivocator> and any vote <math|V<rsub|v><rsup|r,stage><around*|(|B|)>>
-    casted by <math|v> in that round is an <strong|equivocatory vote> and
+    cast by <math|v> in that round is an <strong|equivocatory vote> and
 
     <\equation*>
       \<cal-E\><rsup|r,stage>
@@ -660,7 +910,7 @@
       <\itemize-dot>
         <item><math|H<around|(|B|)>> does not correspond to a valid block;
 
-        <item><math|B> is not an (eventual) descendent of a previously
+        <item><math|B> is not an (eventual) descendant of a previously
         finalized block;
 
         <item><math|M<rsup|r,stage><rsub|v>> does not bear a valid signature;
@@ -668,7 +918,7 @@
         <item><math|id<rsub|\<bbb-V\>>> does not match the current
         <math|\<bbb-V\>>;
 
-        <item>If <math|V<rsub|v><rsup|r,stage>> is an equivacatory vote.
+        <item>If <math|V<rsub|v><rsup|r,stage>> is an equivocatory vote.
       </itemize-dot>
     </itemize>
   </definition>
@@ -680,8 +930,8 @@
     is equal to the union of:
 
     <\itemize-dot>
-      <item>set of valid votes <math|V<rsup|r,stage><rsub|v<rsub|i>>> casted
-      in round <math|r> and received by v such that
+      <item>set of valid votes <math|V<rsup|r,stage><rsub|v<rsub|i>>> cast in
+      round <math|r> and received by v such that
       <math|V<rsup|r,stage><rsub|v<rsub|i>>=V<around|(|B|)>>.
     </itemize-dot>
   </definition>
@@ -724,9 +974,9 @@
 
   \;
 
-  Finally we define when a voter <math|v> see a round as completable, that is
-  when they are confident that <math|B<rsub|v><rsup|r,pv>> is an upper bound
-  for what is going to be finalised in this round. \ 
+  Finally, we define when a voter <math|v> see a round as completable, that
+  is when they are confident that <math|B<rsub|v><rsup|r,pv>> is an upper
+  bound for what is going to be finalised in this round. \ 
 
   <\definition>
     We say that round <math|r> is <strong|completable> if
@@ -795,7 +1045,7 @@
     or <math|V<rsup|r,pc><rsub|v<rsub|i>><around*|(|B<rprime|'>|)>> is an
     equivocatory vote.
 
-    In all cases <math|Sign<rsup|r,pc><rsub|v<rsub|i>><around*|(|B<rprime|'>|)>>
+    In all cases, <math|Sign<rsup|r,pc><rsub|v<rsub|i>><around*|(|B<rprime|'>|)>>
     is the signature of voter <math|v<rsub|i>> broadcasted during the
     pre-commit sub-round of round r.
   </definition>
@@ -825,7 +1075,7 @@
   the current voting round <math|r<rsub|n>>, which is currently undergoing in
   the network.
 
-  As instructed in Algortihm <reference|alg-join-leave-grandpa>, whenever the
+  As instructed in Algorithm <reference|alg-join-leave-grandpa>, whenever the
   membership of GRANDPA voters changes, <math|r> is set to 0 and
   <math|V<rsub|id>> needs to be incremented.
 
@@ -1010,7 +1260,7 @@
     </algorithmic>
   </algorithm>
 
-  <section|Auxilary Encodings>
+  <section|Auxiliary Encodings>
 
   <subsection|SCALE Codec><label|sect-scale-codec>
 
@@ -1020,7 +1270,8 @@
   hash proof for the State Storage.
 
   <\definition>
-    The <strong|SCALE codec> for <strong|Byte array> <math|A> such that
+    <label|def-scale-codec>The <strong|SCALE codec> for <strong|Byte array>
+    <math|A> such that
 
     <\equation*>
       A\<assign\>b<rsub|1>*b<rsub|2>*\<ldots\>*b<rsub|n>
@@ -1030,7 +1281,7 @@
     <math|Enc<rsub|SC><around|(|A|)>> and defined as follows:
 
     <\equation*>
-      Enc<rsub|SC><around|(|A|)>\<assign\><around*|{|<tabular*|<tformat|<cwith|1|-1|1|1|cell-halign|l>|<cwith|1|-1|1|1|cell-lborder|0ln>|<cwith|1|-1|2|2|cell-halign|l>|<cwith|1|-1|3|3|cell-halign|l>|<cwith|1|-1|3|3|cell-rborder|0ln>|<table|<row|<cell|l<rsup|\<nosymbol\>><rsub|1>*b<rsub|1>*b<rsub|2>*\<ldots\>*b<rsub|n>>|<cell|>|<cell|0\<leqslant\>n\<less\>2<rsup|6>>>|<row|<cell|i<rsup|\<nosymbol\>><rsub|1>*i<rsup|\<nosymbol\>><rsub|2>*b<rsub|1>*\<ldots\>*b<rsub|n>>|<cell|>|<cell|2<rsup|6>\<leqslant\>n\<less\>2<rsup|14>>>|<row|<cell|j<rsup|\<nosymbol\>><rsub|1>*j<rsup|\<nosymbol\>><rsub|2>*j<rsub|3>*b<rsub|1>*\<ldots\>*b<rsub|n>>|<cell|>|<cell|2<rsup|14>\<leqslant\>n\<less\>2<rsup|30>>>|<row|<cell|k<rsub|1><rsup|\<nosymbol\>>*k<rsub|2><rsup|\<nosymbol\>>*\<ldots\>*k<rsub|m><rsup|\<nosymbol\>>*b<rsub|1>*\<ldots\>*b<rsub|n>>|<cell|>|<cell|2<rsup|14>\<leqslant\>n>>>>>|\<nobracket\>>
+      Enc<rsub|SC><around|(|A|)>\<assign\><around*|{|<tabular*|<tformat|<cwith|1|-1|1|1|cell-halign|l>|<cwith|1|-1|1|1|cell-lborder|0ln>|<cwith|1|-1|2|2|cell-halign|l>|<cwith|1|-1|3|3|cell-halign|l>|<cwith|1|-1|3|3|cell-rborder|0ln>|<table|<row|<cell|l<rsup|\<nosymbol\>><rsub|1>*b<rsub|1>*b<rsub|2>*\<ldots\>*b<rsub|n>>|<cell|>|<cell|0\<leqslant\>n\<less\>2<rsup|6>>>|<row|<cell|i<rsup|\<nosymbol\>><rsub|1>*i<rsup|\<nosymbol\>><rsub|2>*b<rsub|1>*\<ldots\>*b<rsub|n>>|<cell|>|<cell|2<rsup|6>\<leqslant\>n\<less\>2<rsup|14>>>|<row|<cell|j<rsup|\<nosymbol\>><rsub|1>*j<rsup|\<nosymbol\>><rsub|2>*j<rsub|3>*b<rsub|1>*\<ldots\>*b<rsub|n>>|<cell|>|<cell|2<rsup|14>\<leqslant\>n\<less\>2<rsup|30>>>|<row|<cell|k<rsub|1><rsup|\<nosymbol\>>*k<rsub|2><rsup|\<nosymbol\>>*\<ldots\>*k<rsub|m><rsup|\<nosymbol\>>*b<rsub|1>*\<ldots\>*b<rsub|n>>|<cell|>|<cell|2<rsup|30>\<leqslant\>n>>>>>|\<nobracket\>>
     </equation*>
 
     in which:<space|0.17em>
@@ -1043,13 +1294,13 @@
     format in base-2 as follows:
 
     <\equation*>
-      n=<around*|{|<tabular*|<tformat|<cwith|1|-1|1|1|cell-halign|l>|<cwith|1|-1|1|1|cell-lborder|0ln>|<cwith|1|-1|2|2|cell-halign|l>|<cwith|1|-1|3|3|cell-halign|l>|<cwith|1|-1|3|3|cell-rborder|0ln>|<table|<row|<cell|l<rsup|7><rsub|1>*\<ldots\>*l<rsup|3><rsub|1>*l<rsup|2><rsub|1>>|<cell|>|<cell|n\<less\>2<rsup|6>>>|<row|<cell|i<rsub|2><rsup|7>*\<ldots\>*i<rsub|2><rsup|0>*i<rsub|1><rsup|7>*\<ldots\>*i<rsup|2><rsub|1><rsup|\<nosymbol\>>>|<cell|>|<cell|2<rsup|6>\<leqslant\>n\<less\>2<rsup|14>>>|<row|<cell|j<rsub|4><rsup|7>*\<ldots\>*j<rsub|4><rsup|0>*j<rsub|3><rsup|7>*\<ldots\>*j<rsub|1><rsup|7>*\<ldots\>*j<rsup|2><rsub|1>>|<cell|>|<cell|2<rsup|14>\<leqslant\>n\<less\>2<rsup|30>>>|<row|<cell|k<rsub|2>+k<rsub|3>*2<rsup|8>+k<rsub|4>*2<rsup|2*\<cdummy\>*8>+\<cdots\>+k<rsub|m>*2<rsup|<around|(|m-2|)>*8>>|<cell|>|<cell|2<rsup|30>\<leqslant\>n>>>>>|\<nobracket\>>
+      <around*|\<nobracket\>|<tabular*|<tformat|<cwith|1|-1|1|1|cell-halign|l>|<cwith|1|-1|1|1|cell-lborder|0ln>|<cwith|1|-1|2|2|cell-halign|l>|<cwith|1|-1|3|3|cell-halign|l>|<cwith|1|-1|3|3|cell-rborder|0ln>|<table|<row|<cell|l<rsup|7><rsub|1>*\<ldots\>*l<rsup|3><rsub|1>*l<rsup|2><rsub|1>>|<cell|>|<cell|n\<less\>2<rsup|6>>>|<row|<cell|i<rsub|2><rsup|7>*\<ldots\>*i<rsub|2><rsup|0>*i<rsub|1><rsup|7>*\<ldots\>*i<rsup|2><rsub|1><rsup|\<nosymbol\>>>|<cell|>|<cell|2<rsup|6>\<leqslant\>n\<less\>2<rsup|14>>>|<row|<cell|j<rsub|4><rsup|7>*\<ldots\>*j<rsub|4><rsup|0>*j<rsub|3><rsup|7>*\<ldots\>*j<rsub|1><rsup|7>*\<ldots\>*j<rsup|2><rsub|1>>|<cell|>|<cell|2<rsup|14>\<leqslant\>n\<less\>2<rsup|30>>>|<row|<cell|k<rsub|2>+k<rsub|3>*2<rsup|8>+k<rsub|4>*2<rsup|2*\<cdummy\>*8>+\<cdots\>+k<rsub|m>*2<rsup|<around|(|m-2|)>*8>>|<cell|>|<cell|2<rsup|30>\<leqslant\>n>>>>>|}>\<assign\>n
     </equation*>
 
     where:
 
     <\equation*>
-      m=l<rsup|7><rsub|1>*\<ldots\>*l<rsup|3><rsub|1>*l<rsup|2><rsub|1>+4
+      k<rsup|7><rsub|1>*\<ldots\>*k<rsup|3><rsub|1>*k<rsup|2><rsub|1>:=m-4
     </equation*>
   </definition>
 
@@ -1097,86 +1348,13 @@
     <reference|def-node-prefix>.
   </definition>
 
-  <section|Genisis Block Specification><label|sect-genisis-block>
+  <section|Genesis Block Specification><label|sect-genisis-block>
 
   <section|Predefined Storage keys><label|sect-predef-storage-keys>
 
   <section|Runtime upgrade><label|sect-runtime-upgrade>
 
-  <section|Runtime API><label|sect-runtime-api>
-
-  Runtime API is a set of functions, which Polkadot RE exposes to Runtime to
-  access Storage content and other external functions. Some of the functions
-  are exposed to the runtime for efficiency reasons. Here is the list of the
-  functions which Polkadot RE exposes to the runtime:
-
-  <\itemize-dot>
-    <item><verbatim|ext_blake2_256>
-
-    <item><verbatim|ext_blake2_256_enumerated_trie_root>
-
-    <item><verbatim|ext_chain_id>
-
-    <item><verbatim|ext_child_storage_root>
-
-    <item><verbatim|ext_clear_child_storage>
-
-    <item><verbatim|ext_clear_prefix>
-
-    <item><verbatim|ext_clear_storage>
-
-    <item><verbatim|ext_ed25519_verify>
-
-    <item><verbatim|ext_exists_child_storage>
-
-    <item><verbatim|ext_free>
-
-    <item><verbatim|ext_get_allocated_child_storage>
-
-    <item><verbatim|ext_get_allocated_storage>
-
-    <item><verbatim|ext_get_child_storage_into>
-
-    <item><verbatim|ext_get_storage_into>
-
-    <item><verbatim|ext_kill_child_storage>
-
-    <item><verbatim|ext_malloc>
-
-    <item><verbatim|ext_print_hex>
-
-    <item><verbatim|ext_print_num>
-
-    <item><verbatim|ext_print_utf8>
-
-    <item><verbatim|ext_sandbox_instance_teardown>
-
-    <item><verbatim|ext_sandbox_instantiate>
-
-    <item><verbatim|ext_sandbox_invoke>
-
-    <item><verbatim|ext_sandbox_memory_get>
-
-    <item><verbatim|ext_sandbox_memory_new>
-
-    <item><verbatim|ext_sandbox_memory_set>
-
-    <item><verbatim|ext_sandbox_memory_teardown>
-
-    <item><verbatim|ext_set_child_storage>
-
-    <item><verbatim|ext_set_storage>
-
-    <item><verbatim|ext_storage_changes_root>
-
-    <item><verbatim|ext_storage_root>
-
-    <item><verbatim|ext_twox_128>
-
-    <item><verbatim|ext_twox_256>
-
-    <item><verbatim|ext_exists_storage>
-  </itemize-dot>
+  ;
 </body>
 
 <\initial>
@@ -1195,70 +1373,87 @@
 
 <\references>
   <\collection>
-    <associate|alg-grandpa-best-candidate|<tuple|4|10>>
-    <associate|alg-grandpa-round|<tuple|3|10>>
-    <associate|alg-join-leave-grandpa|<tuple|2|10>>
+    <associate|alg-grandpa-best-candidate|<tuple|4|14>>
+    <associate|alg-grandpa-round|<tuple|3|13>>
+    <associate|alg-join-leave-grandpa|<tuple|2|13>>
     <associate|auto-1|<tuple|1|1>>
-    <associate|auto-10|<tuple|1|3>>
-    <associate|auto-11|<tuple|3.1.2|3>>
-    <associate|auto-12|<tuple|3.1.3|3>>
-    <associate|auto-13|<tuple|2|3>>
-    <associate|auto-14|<tuple|3.2|4>>
-    <associate|auto-15|<tuple|3.3|4>>
-    <associate|auto-16|<tuple|4|4>>
-    <associate|auto-17|<tuple|4.1|4>>
-    <associate|auto-18|<tuple|5|4>>
-    <associate|auto-19|<tuple|5.1|4>>
-    <associate|auto-2|<tuple|2|1>>
-    <associate|auto-20|<tuple|5.2|5>>
-    <associate|auto-21|<tuple|5.3|5>>
-    <associate|auto-22|<tuple|6|6>>
-    <associate|auto-23|<tuple|7|6>>
-    <associate|auto-24|<tuple|7.1|7>>
-    <associate|auto-25|<tuple|7.2|7>>
-    <associate|auto-26|<tuple|7.3|7>>
-    <associate|auto-27|<tuple|7.3.1|7>>
-    <associate|auto-28|<tuple|7.3.2|9>>
-    <associate|auto-29|<tuple|7.3.3|10>>
+    <associate|auto-10|<tuple|3.2.2|4>>
+    <associate|auto-11|<tuple|3.2.3|4>>
+    <associate|auto-12|<tuple|3.2.4|4>>
+    <associate|auto-13|<tuple|3.3|4>>
+    <associate|auto-14|<tuple|1|4>>
+    <associate|auto-15|<tuple|3.3.1|4>>
+    <associate|auto-16|<tuple|1|4>>
+    <associate|auto-17|<tuple|3.3.2|5>>
+    <associate|auto-18|<tuple|3.3.3|5>>
+    <associate|auto-19|<tuple|2|5>>
+    <associate|auto-2|<tuple|2|2>>
+    <associate|auto-20|<tuple|3.3.4|5>>
+    <associate|auto-21|<tuple|3.4|5>>
+    <associate|auto-22|<tuple|3.4.1|5>>
+    <associate|auto-23|<tuple|3.4.2|6>>
+    <associate|auto-24|<tuple|3.4.3|6>>
+    <associate|auto-25|<tuple|3.4.4|6>>
+    <associate|auto-26|<tuple|3.4.5|6>>
+    <associate|auto-27|<tuple|3.4.6|7>>
+    <associate|auto-28|<tuple|4|7>>
+    <associate|auto-29|<tuple|4.1|7>>
     <associate|auto-3|<tuple|2.1|2>>
-    <associate|auto-30|<tuple|7.3.4|10>>
-    <associate|auto-31|<tuple|8|11>>
-    <associate|auto-32|<tuple|8.1|11>>
-    <associate|auto-33|<tuple|8.2|12>>
-    <associate|auto-34|<tuple|8.3|12>>
-    <associate|auto-35|<tuple|9|13>>
-    <associate|auto-36|<tuple|10|13>>
-    <associate|auto-37|<tuple|11|13>>
-    <associate|auto-38|<tuple|12|13>>
+    <associate|auto-30|<tuple|4.2|7>>
+    <associate|auto-31|<tuple|4.3|7>>
+    <associate|auto-32|<tuple|5|8>>
+    <associate|auto-33|<tuple|5.1|8>>
+    <associate|auto-34|<tuple|5.2|8>>
+    <associate|auto-35|<tuple|5.3|9>>
+    <associate|auto-36|<tuple|6|10>>
+    <associate|auto-37|<tuple|6.1|10>>
+    <associate|auto-38|<tuple|6.2|10>>
+    <associate|auto-39|<tuple|6.3|10>>
     <associate|auto-4|<tuple|2.2|2>>
-    <associate|auto-5|<tuple|2.3|2>>
-    <associate|auto-6|<tuple|3|2>>
+    <associate|auto-40|<tuple|6.3.1|10>>
+    <associate|auto-41|<tuple|6.3.2|12>>
+    <associate|auto-42|<tuple|6.3.3|13>>
+    <associate|auto-43|<tuple|6.3.4|13>>
+    <associate|auto-44|<tuple|7|14>>
+    <associate|auto-45|<tuple|7.1|14>>
+    <associate|auto-46|<tuple|7.2|15>>
+    <associate|auto-47|<tuple|7.3|15>>
+    <associate|auto-48|<tuple|8|15>>
+    <associate|auto-49|<tuple|9|15>>
+    <associate|auto-5|<tuple|2.3|3>>
+    <associate|auto-50|<tuple|10|15>>
+    <associate|auto-6|<tuple|3|3>>
     <associate|auto-7|<tuple|3.1|3>>
-    <associate|auto-8|<tuple|1|3>>
-    <associate|auto-9|<tuple|3.1.1|3>>
+    <associate|auto-8|<tuple|3.2|3>>
+    <associate|auto-9|<tuple|3.2.1|3>>
     <associate|block|<tuple|2.1|2>>
-    <associate|def-block-header|<tuple|7|2>>
-    <associate|def-block-header-hash|<tuple|8|2>>
-    <associate|def-grandpa-justification|<tuple|28|9>>
-    <associate|def-hpe|<tuple|32|12>>
-    <associate|def-key-len-enc|<tuple|33|12>>
-    <associate|def-node-prefix|<tuple|12|6>>
+    <associate|def-block-header|<tuple|10|2>>
+    <associate|def-block-header-hash|<tuple|11|2>>
+    <associate|def-extrinsic-network-message|<tuple|12|7>>
+    <associate|def-grandpa-justification|<tuple|32|12>>
+    <associate|def-hpe|<tuple|36|15>>
+    <associate|def-key-len-enc|<tuple|37|15>>
+    <associate|def-node-prefix|<tuple|16|9>>
     <associate|def-path-graph|<tuple|2|1>>
     <associate|def-radix-tree|<tuple|3|1>>
-    <associate|def-state-read-write|<tuple|9|5>>
-    <associate|def-vote|<tuple|19|7>>
+    <associate|def-scale-codec|<tuple|34|14>>
+    <associate|def-state-read-write|<tuple|13|8>>
+    <associate|def-vote|<tuple|23|11>>
     <associate|defn-bit-rep|<tuple|6|1>>
-    <associate|key-encode-in-trie|<tuple|1|5>>
-    <associate|sect-abi-encoding|<tuple|3.3|4>>
-    <associate|sect-entries-into-runtime|<tuple|3|2>>
-    <associate|sect-genisis-block|<tuple|9|13>>
-    <associate|sect-merkl-proof|<tuple|5.3|5>>
-    <associate|sect-predef-storage-keys|<tuple|10|13>>
-    <associate|sect-runtime-api|<tuple|12|13>>
-    <associate|sect-runtime-api-auth|<tuple|3.1.2|3>>
-    <associate|sect-runtime-upgrade|<tuple|11|13>>
-    <associate|sect-scale-codec|<tuple|8.1|11>>
-    <associate|snippet-runtime-enteries|<tuple|1|3>>
+    <associate|key-encode-in-trie|<tuple|1|8>>
+    <associate|sect-abi-encoding|<tuple|3.2.1|3>>
+    <associate|sect-entries-into-runtime|<tuple|3|3>>
+    <associate|sect-finality|<tuple|6.3|10>>
+    <associate|sect-genisis-block|<tuple|8|15>>
+    <associate|sect-merkl-proof|<tuple|5.3|9>>
+    <associate|sect-predef-storage-keys|<tuple|9|15>>
+    <associate|sect-runtime-api|<tuple|3.4|5>>
+    <associate|sect-runtime-api-auth|<tuple|3.3.2|5>>
+    <associate|sect-runtime-entries|<tuple|3.3|4>>
+    <associate|sect-runtime-upgrade|<tuple|10|15>>
+    <associate|sect-scale-codec|<tuple|7.1|14>>
+    <associate|sect-validate-transaction|<tuple|3.3.4|5>>
+    <associate|snippet-runtime-enteries|<tuple|1|4>>
   </collection>
 </references>
 
@@ -1269,15 +1464,15 @@
     </associate>
     <\associate|figure>
       <tuple|normal|<surround|<hidden|<tuple>>||Snippet to export entries
-      into tho Wasm runtime module>|<pageref|auto-8>>
+      into tho Wasm runtime module>|<pageref|auto-14>>
     </associate>
     <\associate|table>
       <tuple|normal|<surround|<hidden|<tuple>>||Detail of the version data
       type returns from runtime <with|font-family|<quote|tt>|language|<quote|verbatim>|version>
-      function>|<pageref|auto-10>>
+      function>|<pageref|auto-16>>
 
       <tuple|normal|<surround|<hidden|<tuple>>||Detail of the data
-      execute_block returns after execution>|<pageref|auto-13>>
+      execute_block returns after execution>|<pageref|auto-19>>
     </associate>
     <\associate|toc>
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|1<space|2spc>Conventions
@@ -1300,125 +1495,183 @@
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-5>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Runtime>
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Interactions
+      with the Runtime> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-6><vspace|0.5fn>
 
-      <with|par-left|<quote|1tab>|3.1<space|2spc>Entries into Runtime
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|1tab>|3.1<space|2spc>Loading the Runtime code
+      \ \ \ <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-7>>
-
-      <with|par-left|<quote|2tab>|3.1.1<space|2spc>version
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-9>>
-
-      <with|par-left|<quote|2tab>|3.1.2<space|2spc>authorities
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-11>>
-
-      <with|par-left|<quote|2tab>|3.1.3<space|2spc>execute_block
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-12>>
 
       <with|par-left|<quote|1tab>|3.2<space|2spc>Code Executor
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-14>>
+      <no-break><pageref|auto-8>>
 
-      <with|par-left|<quote|1tab>|3.3<space|2spc>ABI Encoding between Runtime
-      and the Runtime Enviornment <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|2tab>|3.2.1<space|2spc>ABI Encoding between
+      Runtime and the Runtime <with|color|<quote|dark
+      red>|Enviornment><with|color|<quote|dark green>|Environment>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-9>>
+
+      <with|par-left|<quote|2tab>|3.2.2<space|2spc>Access to Runtime API
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-10>>
+
+      <with|par-left|<quote|2tab>|3.2.3<space|2spc>Sending
+      <with|color|<quote|dark red>|argument ><with|color|<quote|dark
+      green>|Arguments >to Runtime \ \ <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-11>>
+
+      <with|par-left|<quote|2tab>|3.2.4<space|2spc><with|color|<quote|dark
+      red>|<with|mode|<quote|math>|<with|math-condensed|<quote|true>|<syntax|\<times\>|x>>>><with|color|<quote|dark
+      green>|The >Return <with|color|<quote|dark red>|value
+      ><with|color|<quote|dark green>|Value >from a Runtime
+      <with|color|<quote|dark red>|entry><with|color|<quote|dark
+      green>|Entry> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-12>>
+
+      <with|par-left|<quote|1tab>|3.3<space|2spc>Entries into Runtime
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-13>>
+
+      <with|par-left|<quote|2tab>|3.3.1<space|2spc>version
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-15>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Network
-      API> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-16><vspace|0.5fn>
-
-      <with|par-left|<quote|1tab>|4.1<space|2spc>Block Submission and
-      Validation <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|2tab>|3.3.2<space|2spc>authorities
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-17>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>State
-      Storage and the Storage Trie> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-18><vspace|0.5fn>
+      <with|par-left|<quote|2tab>|3.3.3<space|2spc>execute_block
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-18>>
 
-      <with|par-left|<quote|1tab>|5.1<space|2spc>Accessing The System Storage
-      \ <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-19>>
-
-      <with|par-left|<quote|1tab>|5.2<space|2spc>The General Tree Structure
+      <with|par-left|<quote|2tab>|3.3.4<space|2spc>validate_transaction
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-20>>
 
-      <with|par-left|<quote|1tab>|5.3<space|2spc>The Merkle proof
+      <with|par-left|<quote|1tab>|3.4<space|2spc>Runtime API
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-21>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Extrinsics
-      trie> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-22><vspace|0.5fn>
+      <with|par-left|<quote|2tab>|3.4.1<space|2spc>Storage
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-22>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>Consensus
-      Engine> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-23><vspace|0.5fn>
+      <with|par-left|<quote|2tab>|3.4.2<space|2spc>Memory
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-23>>
 
-      <with|par-left|<quote|1tab>|7.1<space|2spc>Block Tree
+      <with|par-left|<quote|2tab>|3.4.3<space|2spc>Input/Output
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-24>>
 
-      <with|par-left|<quote|1tab>|7.2<space|2spc>Block Production
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|2tab>|3.4.4<space|2spc>Cryptograhpic auxilary
+      functions <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-25>>
 
-      <with|par-left|<quote|1tab>|7.3<space|2spc>Finality
+      <with|par-left|<quote|2tab>|3.4.5<space|2spc>Sandboxing
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-26>>
 
-      <with|par-left|<quote|2tab>|7.3.1<space|2spc>Priliminaries
+      <with|par-left|<quote|2tab>|3.4.6<space|2spc>Misc
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-27>>
 
-      <with|par-left|<quote|2tab>|7.3.2<space|2spc>Voting Messages
-      Specification <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-28>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Network
+      Interactions> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-28><vspace|0.5fn>
 
-      <with|par-left|<quote|2tab>|7.3.3<space|2spc>Initiating the GRANDPA
-      State <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|1tab>|4.1<space|2spc>Extrinsics Submission
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-29>>
 
-      <with|par-left|<quote|2tab>|7.3.4<space|2spc>Voting Process in Round
-      <with|mode|<quote|math>|r> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|1tab>|4.2<space|2spc>Network Messages
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-30>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|8<space|2spc>Auxilary
-      Encodings> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-31><vspace|0.5fn>
+      <with|par-left|<quote|1tab>|4.3<space|2spc>Block Submission and
+      Validation <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-31>>
 
-      <with|par-left|<quote|1tab>|8.1<space|2spc>SCALE Codec
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-32>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>State
+      Storage and the Storage Trie> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-32><vspace|0.5fn>
 
-      <with|par-left|<quote|1tab>|8.2<space|2spc>Hex Encoding
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|1tab>|5.1<space|2spc>Accessing The System Storage
+      \ <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-33>>
 
-      <with|par-left|<quote|1tab>|8.3<space|2spc>Partial Key Encoding
+      <with|par-left|<quote|1tab>|5.2<space|2spc>The General Tree Structure
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-34>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|9<space|2spc>Genisis
-      Block Specification> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-35><vspace|0.5fn>
+      <with|par-left|<quote|1tab>|5.3<space|2spc>The Merkle proof
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-35>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|10<space|2spc>Predefined
-      Storage keys> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Consensus
+      Engine> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-36><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|11<space|2spc>Runtime
-      upgrade> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-37><vspace|0.5fn>
+      <with|par-left|<quote|1tab>|6.1<space|2spc>Block Tree
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-37>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|12<space|2spc>Runtime
-      API> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-38><vspace|0.5fn>
+      <with|par-left|<quote|1tab>|6.2<space|2spc>Block Production
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-38>>
+
+      <with|par-left|<quote|1tab>|6.3<space|2spc>Finality
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-39>>
+
+      <with|par-left|<quote|2tab>|6.3.1<space|2spc><with|color|<quote|dark
+      red>|Priliminaries><with|color|<quote|dark green>|Preliminaries>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-40>>
+
+      <with|par-left|<quote|2tab>|6.3.2<space|2spc>Voting Messages
+      Specification <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-41>>
+
+      <with|par-left|<quote|2tab>|6.3.3<space|2spc>Initiating the GRANDPA
+      State <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-42>>
+
+      <with|par-left|<quote|2tab>|6.3.4<space|2spc>Voting Process in Round
+      <with|mode|<quote|math>|r> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-43>>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc><with|color|<quote|dark
+      red>|Auxilary ><with|color|<quote|dark green>|Auxiliary >Encodings>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-44><vspace|0.5fn>
+
+      <with|par-left|<quote|1tab>|7.1<space|2spc>SCALE Codec
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-45>>
+
+      <with|par-left|<quote|1tab>|7.2<space|2spc>Hex Encoding
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-46>>
+
+      <with|par-left|<quote|1tab>|7.3<space|2spc>Partial Key Encoding
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-47>>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|8<space|2spc><with|color|<quote|dark
+      red>|Genisis ><with|color|<quote|dark green>|Genesis >Block
+      Specification> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-48><vspace|0.5fn>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|9<space|2spc>Predefined
+      Storage keys> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-49><vspace|0.5fn>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|10<space|2spc>Runtime
+      upgrade> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-50><vspace|0.5fn>
     </associate>
   </collection>
 </auxiliary>
